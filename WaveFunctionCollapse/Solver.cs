@@ -27,8 +27,7 @@ internal class Solver
         {
             // For each iteration, collapse a cell
             // Note that the cell we choose might already be collapsed
-            // Internally, the board uses a strategy to determine which cell to collapse
-            _board.CollapseCell(_collapseStrategy);
+            _collapseStrategy.CollapseCell(_board);
 
             // Then, we need to propagate the collapsed cells again
             PropagateCollapsedCells();

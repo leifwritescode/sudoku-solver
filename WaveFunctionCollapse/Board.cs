@@ -54,15 +54,6 @@ internal class Board : ICloneable
     }
 
     /// <summary>
-    /// Collapse the cell at the given coordinates
-    /// </summary>
-    /// <param name="p">The coordinate</param>
-    public void CollapseCell(ICollapseStrategy collapseStrategy)
-    {
-        collapseStrategy.CollapseCell(this);
-    }
-
-    /// <summary>
     /// Determine if the board is solved
     /// </summary>
     /// <returns>true if solved, else false</returns>
