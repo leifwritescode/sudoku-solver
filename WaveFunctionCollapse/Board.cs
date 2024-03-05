@@ -1,9 +1,12 @@
 using System.Text;
+using LDK.Extensions;
 
 namespace WaveFunctionCollapse;
 
 internal class Board : ICloneable
 {
+    private const int SUM = 45;
+
     private static readonly (int x, int y)[] s_blocks =
     [
         // 9x9 grid
@@ -19,22 +22,29 @@ internal class Board : ICloneable
         (6, 6)
     ];
 
-    private Cell[,] _cells;
+    private readonly IList<Cell> _cells = [];
 
     public int Length { get; init; }
+
+    public bool IsCollapsed => _cells.All(cell => cell.IsCollapsed);
 
     public Board(int length, int[,] values)
     {
         Length = length;
 
-        _cells = new Cell[Length, Length];
         for (var y = 0; y < length; y++)
         {
             for (var x = 0; x < length; x++)
             {
-                _cells[y, x] = new Cell(values[y, x]);
+                _cells.Add(new Cell((x, y), values[y, x]));
             }
         }
+    }
+
+    private Board(int length, IEnumerable<Cell> cells)
+    {
+        Length = length;
+        _cells = cells.Select(cell => (Cell)cell.Clone()).ToList();
     }
 
     /// <summary>
@@ -43,14 +53,14 @@ internal class Board : ICloneable
     /// <param name="p">The point</param>
     /// <returns>The cell</returns>
     /// <exception cref="ArgumentOutOfRangeException">p is out of range</exception>
-    public Cell GetCell((int x, int y) p)
+    public Cell CellAt((int x, int y) p)
     {
         if (p.x < 0 || p.x >= Length || p.y < 0 || p.y >= Length)
         {
             throw new ArgumentOutOfRangeException(nameof(p));
         }
 
-        return _cells[p.y, p.x];
+        return _cells.Single(cell => cell.Coordinate == p);
     }
 
     /// <summary>
@@ -59,47 +69,95 @@ internal class Board : ICloneable
     /// <returns>true if solved, else false</returns>
     public bool IsSolved()
     {
-        var zeroToEight = Enumerable.Range(0, 9).ToArray();
+        // break early if the board is not collapsed
+        if (!IsCollapsed) return false;
 
         // check row
         for (var y = 0; y < 9; y++)
         {
-            var cells = zeroToEight.Select(x => _cells[y, x]);
-            if (cells.Distinct().Sum(x => x.Value) != 45) return false;
+            var cells = _cells.Where(cell => cell.Coordinate.y == y);
+            if (cells.Distinct().Sum(x => x.Value) != SUM) return false;
         }
 
         // check rows
         for (var x = 0; x < 9; x++)
         {
-            var cells = zeroToEight.Select(y => _cells[y, x]);
-            if (cells.Distinct().Sum(x => x.Value) != 45) return false;
+            var cells = _cells.Where(cell => cell.Coordinate.x == x);
+            if (cells.Distinct().Sum(x => x.Value) != SUM) return false;
         }
 
         // check squares
+        // we know the rows/columns are valid, so we can just check the 3x3 blocks and return the result
         var blockSize = (int)Math.Floor(Math.Sqrt(Length));
-        foreach (var (x, y) in s_blocks)
-        {
-            // This is slow, but I like the LinQ syntax
-            var rangeInX = Enumerable.Range(x, blockSize);
-            var cells = rangeInX.SelectMany(x => {
-                var rangeInY = Enumerable.Range(y, blockSize);
-                return rangeInY.Select(y => _cells[y, x]);
+        return s_blocks.All(block => {
+            var cells = _cells.Where(cell => {
+                return cell.Coordinate.x.IsInRange(block.x, block.x + blockSize + 2) &&
+                       cell.Coordinate.y.IsInRange(block.y, block.y + blockSize + 2);
             });
+            return cells.Distinct().Sum(x => x.Value) == SUM;
+        });
+    }
 
-            if (cells.Distinct().Sum(x => x.Value) != 45) return false;
+    public IEnumerable<Cell> AllCells => _cells;
+
+    public IEnumerable<Cell> AllCellsAffectedByCell(Cell cell)
+    {
+        var row = AllCellsInRow(cell.Coordinate.y);
+        var column = AllCellsInColumn(cell.Coordinate.x);
+        var block = AllCellsInBlock(cell.Coordinate.x, cell.Coordinate.y);
+        return row.Union(column).Union(block);
+    }
+
+    private HashSet<Cell> AllCellsInRow(int row)
+    {
+        if (row < 0 || row >= Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(row));
         }
 
-        return true;
+        return new HashSet<Cell>(_cells.Where(cell => cell.Coordinate.y == row));
+    }
+
+    private HashSet<Cell> AllCellsInColumn(int column)
+    {
+        if (column < 0 || column >= Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(column));
+        }
+
+        return new HashSet<Cell>(_cells.Where(cell => cell.Coordinate.x == column));
+    }
+
+    private HashSet<Cell> AllCellsInBlock(int column, int row)
+    {
+        if (column < 0 || column >= Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(column));
+        }
+
+        if (row < 0 || row >= Length)
+        {
+            throw new ArgumentOutOfRangeException(nameof(row));
+        }
+
+        var xStart = column - (column % 3);
+        var yStart = row - (row % 3);
+
+        return new HashSet<Cell>(_cells.Where(cell => {
+            return cell.Coordinate.x.IsInRange(xStart, xStart + 2) &&
+                   cell.Coordinate.y.IsInRange(yStart, yStart + 2);
+        }));
     }
 
     public override string ToString()
     {
         var sb = new StringBuilder();
-        for (var y = 0; y < 9; y++)
+        for (var y = 0; y < Length; y++)
         {
-            for (var x = 0; x < 9; x++)
+            var cells = _cells.Where(cell => cell.Coordinate.y == y).OrderBy(cell => cell.Coordinate.x);
+            foreach (var cell in cells)
             {
-                sb.Append(_cells[y, x]);
+                sb.Append(cell.Value ?? ' ');
             }
             sb.AppendLine();
         }
@@ -109,15 +167,6 @@ internal class Board : ICloneable
 
     public object Clone()
     {
-        var cells = new int[Length, Length];
-        for (var y = 0; y < 9; y++)
-        {
-            for (var x = 0; x < 9; x++)
-            {
-                cells[y, x] = _cells[y, x].Value ?? 0;
-            }
-        }
-
-        return new Board(Length, cells);
+        return new Board(Length, _cells);
     }
 }

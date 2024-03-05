@@ -9,12 +9,12 @@ internal class LowestEntropyCollapseStrategy : ICollapseStrategy
 
     public void CollapseCell(Board board)
     {
-        var cell = new Cell(); // dummy cell with maximum entropy
+        var cell = new Cell((0, 0)); // dummy cell with maximum entropy
         for (var y = 0; y < board.Length; ++y)
         {
             for (var x = 0; x < board.Length; ++x)
             {
-                var candidate = board.GetCell((x, y));
+                var candidate = board.CellAt((x, y));
                 if (candidate.IsCollapsed) continue;
 
                 if (candidate.Entropy < cell.Entropy)

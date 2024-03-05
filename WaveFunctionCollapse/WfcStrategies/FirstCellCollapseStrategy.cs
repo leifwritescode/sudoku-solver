@@ -13,7 +13,7 @@ internal class FirstCellCollapseStrategy : ICollapseStrategy
         {
             for (var x = 0; x < board.Length; ++x)
             {
-                var candidate = board.GetCell((x, y));
+                var candidate = board.CellAt((x, y));
                 if (candidate.IsCollapsed) continue;
 
                 candidate.Collapse();

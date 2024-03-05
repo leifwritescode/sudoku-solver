@@ -1,4 +1,6 @@
-using WaveFunctionCollapse;
+using LDK.Collections;
+
+namespace WaveFunctionCollapse;
 
 internal class Solver
 {
@@ -32,18 +34,11 @@ internal class Solver
             // Then, we need to propagate the collapsed cells again
             PropagateCollapsedCells();
 
-            // Lastly, compute if the board has been fully collapsed
-            var xRange = Enumerable.Range(0, _board.Length);
-            var collapsed = xRange.All(x => {
-                var yRange = Enumerable.Range(0, _board.Length);
-                return yRange.All(y => !_board.GetCell((x, y)).IsCollapsed);
-            });
-
             // If the board has been collapsed, return it
             // Otherwise, go around again until either:
             // 1. The board is collapsed, or
             // 2. We've run out of iterations
-            if (collapsed)
+            if (_board.IsCollapsed)
             {
                 return _board;
             }
@@ -63,71 +58,38 @@ internal class Solver
 
     private void PropagateCollapsedCells()
     {
-        // updating possible values requires that we take the (x, y) coordinate
-        // and update the values on the block, row, and column that contain that cell
-        // if any of those cells collapse as a result, we run the routine recursively on _that_ cell
-        // and so on and so forth until we unwind to the original cell
-        for (var y = 0; y < _board.Length; ++y)
+        // prepare a queue of all cells
+        var queue = new Queue<Cell>();
+        var allCells = _board.AllCells;
+        foreach (var cell in allCells)
         {
-            for (var x = 0; x < _board.Length; ++x)
+            queue.Enqueue(cell);
+        }
+
+        // each time a cell collapses, affected cells are enqueue to see if they also collapse
+        // process the queue until no more cells are affected by this "ripple effect"
+        while (queue.TryDequeue(out var cell))
+        {
+            // if the cell is collapsed, we don't need to do anything
+            if (cell.IsCollapsed) continue;
+
+            // otherwise, find all cells affected by this cell, and eliminate the values of the collapsed cells
+            var allAffectedCells = _board.AllCellsAffectedByCell(cell);
+            var values = allAffectedCells.Where(c => c.IsCollapsed).Select(c => c.Value!.Value);
+            //Console.WriteLine($"Affected cells: {allAffectedCells.Count()}, collapsed cells: {values.Count()}");
+            foreach (var v in values)
             {
-                var cell = _board.GetCell((x, y));
-                if (cell.IsCollapsed)
-                {
-                    continue;
-                }
+                cell.Eliminate(v);
+            }
 
-                // iterate over the rows
-                // eliminating collapsed values as we go
-                for (var r = 0; r < _board.Length; ++r)
+            // if the cell should collapse during this process, enqueue all affected cells to see if they also collapse
+            if (cell.IsCollapsed)
+            {
+                foreach (var c in allAffectedCells)
                 {
-                    var cellInRow = _board.GetCell((x, r));
-                    if (cellInRow.IsCollapsed)
-                    {
-                        cell.Eliminate(cellInRow.Value!.Value);
-                    }
-                }
-
-                // iterate over the columns...
-                for (var c = 0; c < _board.Length; ++c)
-                {
-                    var cellInColumn = _board.GetCell((c, y));
-                    if (cellInColumn.IsCollapsed)
-                    {
-                        cell.Eliminate(cellInColumn.Value!.Value);
-                    }
-                }
-
-                // and the block
-                var block = GetBlockFromCoordinate((x, y));
-                foreach (var (bx, by) in block)
-                {
-                    var cellInBlock = _board.GetCell((bx, by));
-                    if (cellInBlock.IsCollapsed)
-                    {
-                        cell.Eliminate(cellInBlock.Value!.Value);
-                    }
-                }
-
-                // if this cell collapsed during the elimination process
-                // we need to propagate the changes
-                if (cell.IsCollapsed)
-                {
-                    PropagateCollapsedCells();
+                    queue.Enqueue(c);
                 }
             }
         }
-    }
-
-    private static IEnumerable<(int x, int y)> GetBlockFromCoordinate((int x, int y) coordinate)
-    {
-        var (x, y) = coordinate;
-        var xStart = x - (x % 3);
-        var yStart = y - (y % 3);
-        var xRange = Enumerable.Range(xStart, 3);
-        return xRange.SelectMany(x => {
-            var yRange = Enumerable.Range(yStart, 3);
-            return yRange.Select(y => (x, y));
-        });
     }
 }

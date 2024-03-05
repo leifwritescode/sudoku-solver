@@ -10,13 +10,18 @@ internal class Cell : ICloneable
 
     public int Entropy => _possibleValues.Count;
 
-    public Cell()
+    public (int x, int y) Coordinate { get; init; }
+
+    public Cell((int x, int y) coordinate)
     {
+        Coordinate = coordinate;
         _possibleValues.AddRange([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     }
 
-    public Cell(int value)
+    public Cell((int x, int y) coordinate, int value)
     {
+        Coordinate = coordinate;
+    
         if (value < 0 || value > 9)
         {
             throw new ArgumentOutOfRangeException(nameof(value));
@@ -60,17 +65,14 @@ internal class Cell : ICloneable
     {
         if (Value.HasValue)
         {
-            return $"{Value}";
+            return $"({Coordinate.x}, {Coordinate.y}) => {Value}";
         }
 
-        return string.Join(',', _possibleValues);
+        return $"({Coordinate.x}, {Coordinate.y}) => [{string.Join(',', _possibleValues)}]";
     }
 
     public object Clone()
     {
-        return new Cell
-        {
-            _possibleValues = new List<int>(_possibleValues)
-        };
+        return new Cell(Coordinate, Value ?? 0);
     }
 }
