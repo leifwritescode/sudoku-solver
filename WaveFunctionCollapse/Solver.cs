@@ -59,17 +59,20 @@ internal class Solver
     private void PropagateCollapsedCells()
     {
         // prepare a queue of all cells
-        var queue = new Queue<Cell>();
+        var queue = new Queue<(int x, int y)>();
         var allCells = _board.AllCells;
         foreach (var cell in allCells)
         {
-            queue.Enqueue(cell);
+            queue.Enqueue(cell.Coordinate);
         }
 
         // each time a cell collapses, affected cells are enqueue to see if they also collapse
         // process the queue until no more cells are affected by this "ripple effect"
-        while (queue.TryDequeue(out var cell))
+        while (queue.TryDequeue(out var coordinate))
         {
+            // get the cell
+            var cell = _board.CellAt(coordinate);
+
             // if the cell is collapsed, we don't need to do anything
             if (cell.IsCollapsed) continue;
 
@@ -85,9 +88,9 @@ internal class Solver
             // if the cell should collapse during this process, enqueue all affected cells to see if they also collapse
             if (cell.IsCollapsed)
             {
-                foreach (var c in allAffectedCells)
+                foreach (var affectedCell in allAffectedCells)
                 {
-                    queue.Enqueue(c);
+                    queue.Enqueue(affectedCell.Coordinate);
                 }
             }
         }

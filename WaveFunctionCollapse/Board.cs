@@ -105,30 +105,30 @@ internal class Board : ICloneable
         var row = AllCellsInRow(cell.Coordinate.y);
         var column = AllCellsInColumn(cell.Coordinate.x);
         var block = AllCellsInBlock(cell.Coordinate.x, cell.Coordinate.y);
-        return row.Union(column).Union(block);
+        return row.Concat(column).Concat(block).Distinct();
     }
 
-    private HashSet<Cell> AllCellsInRow(int row)
+    private IEnumerable<Cell> AllCellsInRow(int row)
     {
         if (row < 0 || row >= Length)
         {
             throw new ArgumentOutOfRangeException(nameof(row));
         }
 
-        return new HashSet<Cell>(_cells.Where(cell => cell.Coordinate.y == row));
+        return _cells.Where(cell => cell.Coordinate.y == row);
     }
 
-    private HashSet<Cell> AllCellsInColumn(int column)
+    private IEnumerable<Cell> AllCellsInColumn(int column)
     {
         if (column < 0 || column >= Length)
         {
             throw new ArgumentOutOfRangeException(nameof(column));
         }
 
-        return new HashSet<Cell>(_cells.Where(cell => cell.Coordinate.x == column));
+        return _cells.Where(cell => cell.Coordinate.x == column);
     }
 
-    private HashSet<Cell> AllCellsInBlock(int column, int row)
+    private IEnumerable<Cell> AllCellsInBlock(int column, int row)
     {
         if (column < 0 || column >= Length)
         {
@@ -143,10 +143,10 @@ internal class Board : ICloneable
         var xStart = column - (column % 3);
         var yStart = row - (row % 3);
 
-        return new HashSet<Cell>(_cells.Where(cell => {
+        return _cells.Where(cell => {
             return cell.Coordinate.x.IsInRange(xStart, xStart + 2) &&
                    cell.Coordinate.y.IsInRange(yStart, yStart + 2);
-        }));
+        });
     }
 
     public override string ToString()
